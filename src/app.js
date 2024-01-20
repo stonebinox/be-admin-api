@@ -248,7 +248,7 @@ app.get("/admin/best-profession", async (req, res) => {
     "Profile"."type" = 'contractor'
     AND "Jobs"."paid" = true
     AND "Jobs"."paymentDate" >= :startDate
-    AND "Jobs"."paymentDate" < :endDate
+    AND "Jobs"."paymentDate" =< :endDate
   GROUP BY
     "Profile"."profession"
   ORDER BY
@@ -263,6 +263,68 @@ app.get("/admin/best-profession", async (req, res) => {
     const data = result[0];
 
     return res.status(200).json(data);
+  } catch (error) {
+    return res.status(400).send(error);
+  }
+});
+
+/**
+ * Gets the list of best clients in a timeframe
+ */
+app.get("/admin/best-clients", async (req, res) => {
+  const start = req.query.start;
+  const end = req.query.end;
+  const limit = req.query.limit || 2;
+  const { Job, Contract, Profile } = req.app.get("models");
+
+  if (!start || !end) {
+    return res.status(400).json({ error: "Invalid timeframe" });
+  }
+
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+
+  try {
+    const result = await sequelize.query(
+      `
+    SELECT
+    "Profile"."id",
+    "Profile"."firstName",
+    "Profile"."lastName",
+    SUM("Jobs"."price") as "paid"
+  FROM
+    "Profiles" as "Profile"
+    INNER JOIN "Contracts" as "Client" ON "Profile"."id" = "Client"."ClientId"
+    INNER JOIN "Jobs" as "Jobs" ON "Client"."id" = "Jobs"."ContractId"
+  WHERE
+    "Profile"."type" = 'client'
+    AND "Jobs"."paid" = true
+    AND "Jobs"."paymentDate" >= :startDate
+    AND "Jobs"."paymentDate" < :endDate
+  GROUP BY
+    "Profile"."id", "Profile"."firstName", "Profile"."lastName", "Profile"."profession"
+  ORDER BY
+    "totalPaid" DESC
+  LIMIT :limit`,
+      {
+        replacements: {
+          startDate,
+          endDate,
+          limit,
+        },
+        type: sequelize.QueryTypes.SELECT,
+      }
+    );
+
+    const formattedResponse = result.map((row) => {
+      return {
+        id: row.id,
+        fullName: `${row.firstName} ${row.lastName}`,
+        paid: row.paid,
+      };
+    });
+
+    return res.status(200).json(formattedResponse);
   } catch (error) {
     return res.status(400).send(error);
   }
