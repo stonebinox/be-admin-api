@@ -59,12 +59,14 @@ app.get("/contractor/:id/jobs", getProfile, async (req, res) => {
   });
 
   const jobs = await Promise.all(jobsPromises);
+  const filteredJobs = jobs.filter((job) => job !== null);
 
-  return res.status(200).json(jobs);
+  return res.status(200).json(filteredJobs);
 });
 
 /**
- * FIX ME!
+ * Gets a contract by contract ID
+ *
  * @returns contract by id
  */
 app.get("/contracts/:id", getProfile, async (req, res) => {
