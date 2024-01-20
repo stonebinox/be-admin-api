@@ -247,6 +247,19 @@ app.post("/jobs/:job_id/pay", getProfile, async (req, res) => {
   }
 
   // Note: we don't necessarily mark the job as complete, do we? i assume a job can be paid for but not completed as it could be a recurring job or something more long-term
+  // ignore previous comment; makes no sense looking at the UI flow to not log it as "paid"
+
+  await Job.update(
+    {
+      paid: true,
+      paymentDate: new Date(),
+    },
+    {
+      where: {
+        id: jobId,
+      },
+    }
+  );
 
   return res.status(200).json({
     success: true,
