@@ -21,6 +21,49 @@ app.get("/profile", getProfile, (req, res) => {
 });
 
 /**
+ * Gets all jobs related to a contractor
+ *
+ * @returns {Job[]} jobs
+ */
+app.get("/contractor/:id/jobs", getProfile, async (req, res) => {
+  const { id } = req.params;
+  const { Job, Profile, Contract } = req.app.get("models");
+
+  const contractorProfile = await Profile.findOne({
+    id,
+  });
+
+  if (!contractorProfile)
+    return res.status(404).json({ error: "No contractor found" });
+
+  const contracts = await Contract.findAll({
+    where: {
+      ContractorId: id,
+      ClientId: req.profile.id,
+    },
+  });
+
+  if (contracts.length === 0)
+    return res.status(404).json({
+      error: "No contracts found",
+    });
+
+  const jobsPromises = contracts.map(async (contract) => {
+    const job = await Job.findOne({
+      where: {
+        ContractId: contract.id,
+      },
+    });
+
+    return job;
+  });
+
+  const jobs = await Promise.all(jobsPromises);
+
+  return res.status(200).json(jobs);
+});
+
+/**
  * FIX ME!
  * @returns contract by id
  */
@@ -28,8 +71,10 @@ app.get("/contracts/:id", getProfile, async (req, res) => {
   const { Contract, Profile } = req.app.get("models");
   const { id } = req.params;
   const contract = await Contract.findOne({ where: { id } });
+
   if (!contract) return res.status(404).end();
-  res.json(contract);
+
+  return res.send(200).json(contract);
 });
 
 /**
@@ -37,7 +82,7 @@ app.get("/contracts/:id", getProfile, async (req, res) => {
  *
  * @returns {Profile[]} Profiles
  */
-app.get("/client/contracts", getProfile, async (req, res) => {
+app.get("/client/contractors", getProfile, async (req, res) => {
   const { Contract, Profile } = req.app.get("models");
 
   const contracts = await Contract.findAll({
