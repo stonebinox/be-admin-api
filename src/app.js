@@ -116,17 +116,101 @@ app.post("/jobs/:job_id/pay", getProfile, async (req, res) => {
 
   try {
     await sequelize.transaction(async (transaction) => {
-      await req.profile.changed("balance", finalClientBalance);
-      await req.profile.save({ transaction });
+      await Profile.update(
+        {
+          balance: finalClientBalance,
+        },
+        {
+          where: {
+            id: req.profile.id,
+          },
+        },
+        {
+          transaction,
+        }
+      );
 
-      await contractor.changed("balance", finalContractorBalance);
-      await contractor.save({ transaction });
+      await Profile.update(
+        {
+          balance: finalContractorBalance,
+        },
+        {
+          where: {
+            id: ContractorId,
+          },
+        },
+        {
+          transaction,
+        }
+      );
     });
   } catch (error) {
     return res.status(400).send(error);
   }
 
-  // Note: we don't necessarily mark the job as complete, do we? in assume a job can be paid for but not completed as it could be a recurring job or something more long-term
+  // Note: we don't necessarily mark the job as complete, do we? i assume a job can be paid for but not completed as it could be a recurring job or something more long-term
+
+  return res.status(200).json({
+    success: true,
+  });
+});
+
+app.post("/balances/deposit/:userId", getProfile, async (req, res) => {
+  // Note: this assumes that we're paying into the balance of the user that's logged in; in this case, `userId` is redundant as the context of the current user can be inferred from `res` as `id` (since we're not really tracking the identity of the actual user that's using the interface)
+
+  if (req.profile.type !== "client") return res.status(404).end();
+
+  const { Job, Contract, Profile } = req.app.get("models");
+  const amount = req.body.amount;
+
+  if (!amount || amount <= 0)
+    return res.status(400).json({
+      error: "Invalid amount to deposit",
+    });
+
+  const contracts = await Contract.findAll({
+    where: {
+      ClientId: req.profile.id,
+    },
+  });
+
+  const unpaidJobsPromises = contracts.map(async (contract) => {
+    const unpaidJob = await Job.findAll({
+      where: {
+        ContractId: contract.id,
+        paid: false || null,
+      },
+    });
+
+    return unpaidJob;
+  });
+
+  const unpaidJobsList = await Promise.all(unpaidJobsPromises);
+
+  let totalPending = 0;
+
+  unpaidJobsList.flat().forEach((job) => {
+    totalPending += job.price;
+  });
+
+  if (amount >= totalPending * 0.25) {
+    return res
+      .status(400)
+      .json({ error: "Amount higher than permitted limit" });
+  }
+
+  const finalBalance = req.profile.balance + amount;
+
+  await Profile.update(
+    {
+      balance: finalBalance,
+    },
+    {
+      where: {
+        id: req.profile.id,
+      },
+    }
+  );
 
   return res.status(200).json({
     success: true,
