@@ -12,6 +12,15 @@ app.set("sequelize", sequelize);
 app.set("models", sequelize.models);
 
 /**
+ * Gets the current logged in client's profile
+ *
+ * @returns profile
+ */
+app.get("/profile", getProfile, (req, res) => {
+  return res.status(200).json(req.profile);
+});
+
+/**
  * FIX ME!
  * @returns contract by id
  */
@@ -33,7 +42,7 @@ app.get("/profiles", async (req, res) => {
   const { id } = req.params;
   const profiles = await Profile.findAll({ where: { type: "client" } });
 
-  res.status(200).json(profiles);
+  return res.status(200).json(profiles);
 });
 
 /**
