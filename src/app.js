@@ -14,7 +14,7 @@ app.set("models", sequelize.models);
 /**
  * Gets the current logged in client's profile
  *
- * @returns profile
+ * @returns {Profile}
  */
 app.get("/profile", getProfile, (req, res) => {
   return res.status(200).json(req.profile);
@@ -25,11 +25,54 @@ app.get("/profile", getProfile, (req, res) => {
  * @returns contract by id
  */
 app.get("/contracts/:id", getProfile, async (req, res) => {
-  const { Contract } = req.app.get("models");
+  const { Contract, Profile } = req.app.get("models");
   const { id } = req.params;
   const contract = await Contract.findOne({ where: { id } });
   if (!contract) return res.status(404).end();
   res.json(contract);
+});
+
+/**
+ * gets all contractors for a client
+ *
+ * @returns {Profile[]} Profiles
+ */
+app.get("/client/contracts", getProfile, async (req, res) => {
+  const { Contract, Profile } = req.app.get("models");
+
+  const contracts = await Contract.findAll({
+    where: {
+      ClientId: req.profile.id,
+    },
+  });
+
+  if (contracts.length === 0) {
+    return res.status(404).json({
+      error: "No contracts found",
+    });
+  }
+
+  const profileIds = contracts.map((contract) => contract.ContractorId);
+  const uniqueIds = [];
+  profileIds.forEach((profileId) => {
+    if (uniqueIds.indexOf(profileId) === -1) {
+      uniqueIds.push(profileId);
+    }
+  });
+
+  const profileIdPromises = uniqueIds.map(async (id) => {
+    const profile = await Profile.findOne({
+      where: {
+        id,
+      },
+    });
+
+    return profile;
+  });
+
+  const profiles = await Promise.all(profileIdPromises);
+
+  return res.status(200).json(profiles);
 });
 
 /**
