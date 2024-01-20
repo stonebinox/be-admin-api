@@ -300,7 +300,7 @@ app.get("/admin/best-clients", async (req, res) => {
     "Profile"."type" = 'client'
     AND "Jobs"."paid" = true
     AND "Jobs"."paymentDate" >= :startDate
-    AND "Jobs"."paymentDate" < :endDate
+    AND "Jobs"."paymentDate" =< :endDate
   GROUP BY
     "Profile"."id", "Profile"."firstName", "Profile"."lastName", "Profile"."profession"
   ORDER BY
